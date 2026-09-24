@@ -1,7 +1,6 @@
 const express = require('express');
 const app = express();
 
-// Enable CORS so your Chrome extension can communicate with the server
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
@@ -14,28 +13,36 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// In-memory database object (Stores stars: { "userId": count })
+// Stores stars: { "targetUserId": count }
 const starDatabase = {};
+// Stores who gave a star: { "targetUserId_giverId": true }
+const userVotes = {};
 
-// GET: Fetch stars for a specific user ID
 app.get('/get-stars/:userId', (req, res) => {
   const userId = req.params.userId;
   const stars = starDatabase[userId] || 0;
   res.status(200).json({ userId, stars });
 });
 
-// POST: Add a star to a specific user ID
 app.post('/add-star', (req, res) => {
-  const { userId } = req.body;
-  if (!userId) {
-    return res.status(400).json({ error: 'Missing userId' });
+  const { targetUserId, giverId } = req.body;
+  if (!targetUserId || !giverId) {
+    return res.status(400).json({ error: 'Missing targetUserId or giverId' });
   }
 
-  // Increment star count
-  starDatabase[userId] = (starDatabase[userId] || 0) + 1;
+  const voteKey = `${targetUserId}_${giverId}`;
+
+  // Check if this user already gave a star to this profile
+  if (userVotes[voteKey]) {
+    return res.status(400).json({ error: 'You have already given a star to this user!', stars: starDatabase[targetUserId] || 0 });
+  }
+
+  // Register vote and increment
+  userVotes[voteKey] = true;
+  starDatabase[targetUserId] = (starDatabase[targetUserId] || 0) + 1;
   
-  console.log(`⭐ Star added for User ID ${userId}. Total stars: ${starDatabase[userId]}`);
-  res.status(200).json({ success: true, stars: starDatabase[userId] });
+  console.log(`⭐ Star added for User ID ${targetUserId} by Giver ID ${giverId}. Total: ${starDatabase[targetUserId]}`);
+  res.status(200).json({ success: true, stars: starDatabase[targetUserId] });
 });
 
 const PORT = process.env.PORT || 3000;
