@@ -13,30 +13,36 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// Stores stars count: { "targetUserId": count }
 const starDatabase = {};
-// Stores who gave stars: { "targetUserId": [giverId1, giverId2, ...] }
-const giversDatabase = {};
-// Stores unique votes to prevent duplicates: { "targetUserId_giverId": true }
+const giversDatabase = {}; // Stores array of objects: { userId, username, avatarUrl }
 const userVotes = {};
 
-// GET: Fetch total stars for a user
 app.get('/get-stars/:userId', (req, res) => {
   const userId = req.params.userId;
   const stars = starDatabase[userId] || 0;
   res.status(200).json({ userId, stars });
 });
 
-// GET: Fetch list of users who gave a star
+// GET: Fetch list of givers with pagination support
 app.get('/get-givers/:targetUserId', (req, res) => {
   const targetUserId = req.params.targetUserId;
-  const givers = giversDatabase[targetUserId] || [];
-  res.status(200).json({ givers });
+  const page = parseInt(req.query.page) || 1;
+  const limit = 50; // 50 items per page
+
+  const allGivers = giversDatabase[targetUserId] || [];
+  const startIndex = (page - 1) * limit;
+  const endIndex = page * limit;
+
+  const paginatedGivers = allGivers.slice(startIndex, endIndex);
+
+  res.status(200).json({
+    givers: paginatedGivers,
+    hasMore: endIndex < allGivers.length
+  });
 });
 
-// POST: Add a star
 app.post('/add-star', (req, res) => {
-  const { targetUserId, giverId } = req.body;
+  const { targetUserId, giverId, giverUsername, giverAvatar } = req.body;
   if (!targetUserId || !giverId) {
     return res.status(400).json({ error: 'Missing targetUserId or giverId' });
   }
@@ -44,19 +50,23 @@ app.post('/add-star', (req, res) => {
   const voteKey = `${targetUserId}_${giverId}`;
 
   if (userVotes[voteKey]) {
-    return res.status(400).json({ error: 'You have already given a star to this user!', stars: starDatabase[targetUserId] || 0 });
+    return res.status(400).json({ error: 'You have already given a star!', stars: starDatabase[targetUserId] || 0 });
   }
 
-  // Register vote
   userVotes[voteKey] = true;
   starDatabase[targetUserId] = (starDatabase[targetUserId] || 0) + 1;
 
   if (!giversDatabase[targetUserId]) {
     giversDatabase[targetUserId] = [];
   }
-  giversDatabase[targetUserId].push(giverId);
+
+  // Add to the beginning of the array so newest givers appear first
+  giversDatabase[targetUserId].unshift({
+    userId: giverId,
+    username: giverUsername || `User_${giverId}`,
+    avatarUrl: giverAvatar || 'https://tr.rbxcdn.com/3941571d796677f14b434e7932d0c242/150/150/AvatarHeadshot/Png'
+  });
   
-  console.log(`⭐ Star added for User ID ${targetUserId} by ${giverId}. Total: ${starDatabase[targetUserId]}`);
   res.status(200).json({ success: true, stars: starDatabase[targetUserId] });
 });
 
