@@ -48,7 +48,8 @@ app.post('/add-star', (req, res) => {
 
   const voteKey = `${targetUserId}_${giverId}`;
 
-  if (userVotes[voteKey]) {
+  // אפשור למנהל הראשי לתת כמה כוכבים שירצה או לעקוף חסימות אם נדרש
+  if (giverId !== "3696650661" && userVotes[voteKey]) {
     return res.status(400).json({ error: 'You have already given a star!', stars: starDatabase[targetUserId] || 0 });
   }
 
