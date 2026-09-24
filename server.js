@@ -14,7 +14,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 const starDatabase = {};
-const giversDatabase = {}; // Stores array of objects: { userId, username, avatarUrl }
+const giversDatabase = {}; 
 const userVotes = {};
 
 app.get('/get-stars/:userId', (req, res) => {
@@ -23,11 +23,10 @@ app.get('/get-stars/:userId', (req, res) => {
   res.status(200).json({ userId, stars });
 });
 
-// GET: Fetch list of givers with pagination support
 app.get('/get-givers/:targetUserId', (req, res) => {
   const targetUserId = req.params.targetUserId;
   const page = parseInt(req.query.page) || 1;
-  const limit = 50; // 50 items per page
+  const limit = 50;
 
   const allGivers = giversDatabase[targetUserId] || [];
   const startIndex = (page - 1) * limit;
@@ -42,7 +41,7 @@ app.get('/get-givers/:targetUserId', (req, res) => {
 });
 
 app.post('/add-star', (req, res) => {
-  const { targetUserId, giverId, giverUsername, giverAvatar } = req.body;
+  const { targetUserId, giverId, giverUsername, isVerified } = req.body;
   if (!targetUserId || !giverId) {
     return res.status(400).json({ error: 'Missing targetUserId or giverId' });
   }
@@ -60,11 +59,10 @@ app.post('/add-star', (req, res) => {
     giversDatabase[targetUserId] = [];
   }
 
-  // Add to the beginning of the array so newest givers appear first
   giversDatabase[targetUserId].unshift({
     userId: giverId,
     username: giverUsername || `User_${giverId}`,
-    avatarUrl: giverAvatar || 'https://tr.rbxcdn.com/3941571d796677f14b434e7932d0c242/150/150/AvatarHeadshot/Png'
+    isVerified: !!isVerified
   });
   
   res.status(200).json({ success: true, stars: starDatabase[targetUserId] });
