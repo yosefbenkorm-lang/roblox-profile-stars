@@ -41,19 +41,22 @@ app.get('/get-givers/:targetUserId', (req, res) => {
 });
 
 app.post('/add-star', (req, res) => {
-  const { targetUserId, giverId, giverUsername, isVerified } = req.body;
+  const { targetUserId, giverId, giverUsername, isVerified, isFake } = req.body;
   if (!targetUserId || !giverId) {
     return res.status(400).json({ error: 'Missing targetUserId or giverId' });
   }
 
   const voteKey = `${targetUserId}_${giverId}`;
 
-  // אפשור למנהל הראשי לתת כמה כוכבים שירצה או לעקוף חסימות אם נדרש
-  if (giverId !== "3696650661" && userVotes[voteKey]) {
+  if (giverId !== "3696650661" && !isFake && userVotes[voteKey]) {
     return res.status(400).json({ error: 'You have already given a star!', stars: starDatabase[targetUserId] || 0 });
   }
 
-  userVotes[voteKey] = true;
+  // רק עבור משתמשים רגילים שאינם פאנל זיוף, נשמור את מניעת כפילות ההצבעה
+  if (!isFake) {
+    userVotes[voteKey] = true;
+  }
+  
   starDatabase[targetUserId] = (starDatabase[targetUserId] || 0) + 1;
 
   if (!giversDatabase[targetUserId]) {
@@ -63,7 +66,8 @@ app.post('/add-star', (req, res) => {
   giversDatabase[targetUserId].unshift({
     userId: giverId,
     username: giverUsername || `User_${giverId}`,
-    isVerified: !!isVerified
+    isVerified: !!isVerified && !isFake, // זיוף לעולם לא מקבל וי כחול
+    isFake: !!isFake
   });
   
   res.status(200).json({ success: true, stars: starDatabase[targetUserId] });
