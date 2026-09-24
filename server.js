@@ -13,17 +13,28 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// Stores stars: { "targetUserId": count }
+// Stores stars count: { "targetUserId": count }
 const starDatabase = {};
-// Stores who gave a star: { "targetUserId_giverId": true }
+// Stores who gave stars: { "targetUserId": [giverId1, giverId2, ...] }
+const giversDatabase = {};
+// Stores unique votes to prevent duplicates: { "targetUserId_giverId": true }
 const userVotes = {};
 
+// GET: Fetch total stars for a user
 app.get('/get-stars/:userId', (req, res) => {
   const userId = req.params.userId;
   const stars = starDatabase[userId] || 0;
   res.status(200).json({ userId, stars });
 });
 
+// GET: Fetch list of users who gave a star
+app.get('/get-givers/:targetUserId', (req, res) => {
+  const targetUserId = req.params.targetUserId;
+  const givers = giversDatabase[targetUserId] || [];
+  res.status(200).json({ givers });
+});
+
+// POST: Add a star
 app.post('/add-star', (req, res) => {
   const { targetUserId, giverId } = req.body;
   if (!targetUserId || !giverId) {
@@ -32,16 +43,20 @@ app.post('/add-star', (req, res) => {
 
   const voteKey = `${targetUserId}_${giverId}`;
 
-  // Check if this user already gave a star to this profile
   if (userVotes[voteKey]) {
     return res.status(400).json({ error: 'You have already given a star to this user!', stars: starDatabase[targetUserId] || 0 });
   }
 
-  // Register vote and increment
+  // Register vote
   userVotes[voteKey] = true;
   starDatabase[targetUserId] = (starDatabase[targetUserId] || 0) + 1;
+
+  if (!giversDatabase[targetUserId]) {
+    giversDatabase[targetUserId] = [];
+  }
+  giversDatabase[targetUserId].push(giverId);
   
-  console.log(`⭐ Star added for User ID ${targetUserId} by Giver ID ${giverId}. Total: ${starDatabase[targetUserId]}`);
+  console.log(`⭐ Star added for User ID ${targetUserId} by ${giverId}. Total: ${starDatabase[targetUserId]}`);
   res.status(200).json({ success: true, stars: starDatabase[targetUserId] });
 });
 
